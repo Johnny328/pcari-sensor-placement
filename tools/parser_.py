@@ -1,5 +1,8 @@
+import random
+
 METER_CONV = 0.3048
-SCALE = 1.07
+SANJUAN_SCALE = 1.42
+MAKATI_SCALE = 1.07
 
 class parser_:
     """
@@ -48,7 +51,9 @@ class parser_:
                     for edge in comps[title]:
                         edge_pair = (edge[1], edge[2])
                         if 'makati' in filename:
-                            distance =  float(edge[3])*(SCALE)
+                            distance =  float(edge[3])*(MAKATI_SCALE)
+                        elif 'sanjuan' in filename:
+                            distance =  float(edge[3])*(SANJUAN_SCALE)
                         else:
                             distance =  float(edge[3])*(METER_CONV)
                         pipes.append([edge[0], edge_pair, distance])
@@ -62,13 +67,13 @@ class parser_:
                     for node in comps[title]:
                         pos[node[0]] = (float(node[1]),float(node[2]))
                 elif title == '[TAGS]':
-                    sfpd = {}
+                    sfpd = dict()
                     for line in comps[title]:
                         code = line[2]
                         if code == 'S':
-                            sfpd[line[1]] = 0.3
+                            sfpd[line[1]] = random.uniform(0.2, 0.3)
                         elif code == 'F':
-                            sfpd[line[1]] = 0.2
+                            sfpd[line[1]] = random.uniform(0.1, 0.2)
 
         inputfile.close()
         return junctions, pipes, pumps, pos, sfpd

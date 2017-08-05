@@ -18,10 +18,12 @@ import numpy as np
 import scipy.linalg
 import math
 from matplotlib import animation
+import pandas
+import pylab as pl
 
 #Run this script as python -m display.plot
+methods = ['NSGA2', 'SPEA2']
 markers = ['o', 'd']
-type_ = raw_input("Enter type [1/2/3/3D]: ")
 
 # User preference 'box'
 dp_pref = (0.90, 1.0)
@@ -29,59 +31,69 @@ risk_pref = (0.0, 0.04)
 preferences = [dp_pref, risk_pref]
 
 # Parse results line by line based on the template in results-template
-def parseResults(filename, results, method):
+def parseResults(model, results):
+	def cleanup(results_dict):
+		to_delete = []
+		for no_sensors in results_dict:
+			if methods[0] in results_dict[no_sensors] and methods[1] not in results_dict[no_sensors]:
+				to_delete.append(no_sensors)
+			elif methods[1] in results_dict[no_sensors] and methods[0] not in results_dict[no_sensors]:
+				to_delete.append(no_sensors)
+		for no_sensors in to_delete:
+			del results_dict[no_sensors]
+
 	def parseLine(line):
 		if line:
 			dp, risk, risk_percent, dpa = float(line[0]), float(line[1]), float(line[2]), float(line[3])
 			return dp, risk, risk_percent, dpa
 		return None
 
-	file = open(filename, 'r')
-	line = file.readline()
-
-	while True:
-		# Number of sensors
-		no_sensors = int(line.strip()) 
-		if no_sensors not in results:
-			results[no_sensors] = dict()
-		results[no_sensors][method] = dict()
-
-		# Attack size
+	for method in methods:
+		file = open('results/Raw/' + method + '/' + model + '.txt', 'r')
 		line = file.readline()
-		results[no_sensors][method]["attack-set-size"] = int(line.strip()) 
-
-		# Number of generations
-		line = file.readline()
-		results[no_sensors][method]["gens"] = int(line.strip()) 
-
-		# Time to run a single generation
-		line = file.readline()
-		results[no_sensors][method]["single-gen-runtime"] = float(line.strip()) 
-
-		# Time to run the whole simulation
-		line = file.readline()
-		results[no_sensors][method]['runtime'] = float(line.strip()) 
-
-		# Set of solutions
-		line = file.readline()
-		results[no_sensors][method]['solution-set'] = dict() 
 		while True:
-			sensors = frozenset(line.strip().split())
+			# Number of sensors
+			no_sensors = int(line.strip()) 
+			if no_sensors not in results:
+				results[no_sensors] = dict()
+			results[no_sensors][method] = dict()
+
+			# Attack size
 			line = file.readline()
-			results[no_sensors][method]['solution-set'][sensors] = parseLine(line.split())
+			results[no_sensors][method]["attack-set-size"] = int(line.strip()) 
+
+			# Number of generations
 			line = file.readline()
-			if line.strip() == '.':
+			results[no_sensors][method]["gens"] = int(line.strip()) 
+
+			# Time to run a single generation
+			line = file.readline()
+			results[no_sensors][method]["single-gen-runtime"] = float(line.strip()) 
+
+			# Time to run the whole simulation
+			line = file.readline()
+			results[no_sensors][method]['runtime'] = float(line.strip()) 
+
+			# Set of solutions
+			line = file.readline()
+			results[no_sensors][method]['solution-set'] = dict() 
+			while True:
+				sensors = frozenset(line.strip().split())
+				line = file.readline()
+				results[no_sensors][method]['solution-set'][sensors] = parseLine(line.split())
+				line = file.readline()
+				if line.strip() == '.':
+					break
+
+			line = file.readline()
+			if not line:
 				break
-
-		line = file.readline()
-		if not line:
-			break
-
+	cleanup(results)
 	return results
 	
-def eliteSet(network, results_dict, methods):
+def eliteSet(network, results_dict, type_):
 	#Combine all solutions of each method into one pool
-	def formPool(no_sensors, results_dict, methods):
+	def formPool(no_sensors, results_dict, methods, type_):
 		pool = dict()
 		for method in methods:
 			pool[method] = []
@@ -110,12 +122,12 @@ def eliteSet(network, results_dict, methods):
 		return pool
 
 	sfpd = network.sfpd
-	for no_sensors in results_dict:
-	#for no_sensors in range(20,36):
+	for no_sensors in results_dict: #[20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33]:
+	#for no_sensors in [20]:
 		print '\nNo. of sensors', no_sensors
 
 		# Create pool of solutions
-		pool_inds = formPool(no_sensors, results_dict, methods)
+		pool_inds = formPool(no_sensors, results_dict, methods, type_)
 		for method in methods:
 			pool_inds[method] = utils.sortNondominated(pool_inds[method])
 		pool = [sol for method in methods for sol in pool_inds[method]]
@@ -151,8 +163,10 @@ def eliteSet(network, results_dict, methods):
 	
  	return results_dict
 
-def plotResults2D(filepath, no_sensors, results_dict, methods):
-	colors = list(i.hex_l for i in Color("blue").range_to(Color("red"), 10))
+def plotResults2D(filepath, no_sensors, results_dict, type_):
+	#colors = list(i.hex_l for i in Color("blue").range_to(Color("red"), 3))
+	colors = ['blue', 'red']
+
 	#Plot preference box
 	def drawPreferenceBox2D(preferences):
 		edges_x, edges_y = [], []
@@ -171,21 +185,24 @@ def plotResults2D(filepath, no_sensors, results_dict, methods):
 			lines = plt.plot(edges_x, edges_y, '-', color='black')
 			edges_x, edges_y = [], []
 
-	def plotFigure(no_sensor, fits):
+	def plotFigure(no_sensor, fits, type_):
 		fig, ax = plt.subplots(figsize=plt.figaspect(0.5)) 
+		marker_size = 30
 		color_patches = []
 		marker_patches = []
 
 		label = 'N=' + str(no_sensors)
-		color = colors.pop()
 
 		max_y = 0
-		for method, marker in zip(methods, markers):		
-			pool_fits = results_dict[no_sensors][fits][method]
-			if pool_fits:
-				plt.scatter(*zip(*pool_fits), s=30, marker=marker, label=label, facecolor='none', color='blue')
-
-			marker_patches.append(mlines.Line2D([], [], color='blue', marker=marker, fillstyle='none', linestyle = 'None', label=method))
+		n = 0
+		for method, marker in zip(methods, markers):
+			#color = colors.pop()
+			color = colors[n]
+			if fits in results_dict[no_sensors]:
+				pool_fits = results_dict[no_sensors][fits][method]
+				if pool_fits: plt.scatter(*zip(*pool_fits), s=marker_size, marker=marker, label=label, facecolor='none', color=color)
+			marker_patches.append(mlines.Line2D([], [], color=color, marker=marker, fillstyle='none', linestyle = 'None', label=method))
+			n += 1
 		
 		legend1 = plt.legend(handles=marker_patches, loc='upper left')
 		plt.gca().add_artist(legend1)
@@ -201,18 +218,18 @@ def plotResults2D(filepath, no_sensors, results_dict, methods):
 		
 		#drawPreferenceBox2D(preferences)
 
-	def savefig(filepath, fits):
-		plotFigure(no_sensors, fits)
+	def savefig(filepath, fits, type_):
+		plotFigure(no_sensors, fits, type_)
 		filepath = filepath + '/' + fits
 		if not os.path.exists(filepath):
 			os.makedirs(filepath)
 		plt.savefig(filepath + '/' + str(no_sensors))
 	
-	savefig(filepath, 'pool-fits')
-	savefig(filepath, 'elite-fits')
+	savefig(filepath, 'pool-fits', type_)
+	savefig(filepath, 'elite-fits', type_)
 	plt.close()
 
-def plotResults3D(no_sensors, results_dict, methods):
+def plotResults3D(filepath, no_sensors, results_dict):
 	def animate(ax, i):
 		ax.view_init(elev=10., azim=i)
 
@@ -240,62 +257,81 @@ def plotResults3D(no_sensors, results_dict, methods):
 
 	for ii in xrange(0,360,1):
 		ax.view_init(elev=10., azim=ii)
-		plt.savefig("3D-%d.png" % ii)
+		if not os.path.exists(filepath):
+			os.makedirs(filepath)
+		plt.savefig(filepath+"%d.png" % ii)
+	plt.close()
 
-	plt.show()
 
-def drawGraph(model, network, results_dict, methods):
+
+def drawGraph(no_sensors, model, network, results_dict):
 	sfpd = network.sfpd
-	#for no_sensors in results_dict:
-	no_sensors = 30
 	solutions_set = dict()
 	for ind in results_dict[no_sensors]['elite-inds']:
 		solutions_set[ind.solution] = ind.fitness.values
 	sorted_ = sorted(solutions_set.items(), key=operator.itemgetter(1), reverse=True)
 	for i, sensors in enumerate(sorted_):
-		print sensors[1]
 		graph_path = os.getcwd() + '/results/' + 'Placements/' + model + '/' + str(no_sensors) + '/'
 		if not os.path.exists(graph_path):
 			os.makedirs(graph_path)
 		canvas.drawGraph(network, list(sensors[0]), sensors[1], graph_path + str(i))
-	"""
+
+def boxplot(filepath, no_sensors, results_dict):
+	fig, axes = plt.subplots(nrows=2, ncols=3)
+	fig.subplots_adjust(hspace=.5)
+	n = -1
 	for method in methods:
-		for no_sensors in results_dict:
-			sorted_ = sorted(results_dict[no_sensors][method]['solution-set'].items(), key=operator.itemgetter(1), reverse=True)
-			for i, sensors in enumerate(sorted_):
-				graph_path = os.getcwd() + '/results/' + 'Placements/' + method + '/' + model + '/' + str(no_sensors) + '/'
-				if not os.path.exists(graph_path):
-					os.makedirs(graph_path)
-				canvas.drawGraph(network, sensors[0], sensors[1], graph_path + str(i))
-	"""
+		n += 1
+		pool_fits = results_dict[no_sensors]['pool-fits'][method]
+		data = []
+		for fits in pool_fits:
+			tuple_ = {'Detection Performance':fits[0], 'Risk':fits[1], 'Reduced Detection Performance':fits[2]}
+			data.append(tuple_)
+		df = pandas.DataFrame(data)
+		axes[n, 1].set_title(method)
+		ax = df.plot(kind='box', subplots=True, layout=(1,3), sharex=False, sharey=False, ax=axes[n])
+	for i in range(0,3):
+		min_ = min(axes[n,i].get_ylim()[0], axes[n-1,i].get_ylim()[0])
+		max_ =   max(axes[n,i].get_ylim()[1], axes[n-1,i].get_ylim()[1])
+		axes[n,i].set_ylim(min_,max_)
+		axes[n-1,i].set_ylim(min_,max_)
+	
+	if not os.path.exists(filepath):
+		os.makedirs(filepath)
+	plt.savefig(filepath+"%d.png" %no_sensors)
+	#plt.show()
 
 def main():
 	cwd = os.getcwd()
-	model = 'ky5'
-	methods = ['SPEA2', 'NSGA2']
-	filename = cwd + '/models/' + model + '.inp'
-	network = Network(filename=filename, max_dist=1000, max_depth=2, option='distance')
-	results_dict = dict()
-	
-	if not network.sfpd:
-		network.sfpd = sfpd_.readSFPD(model)
+	models = ['ky2','ky5', 'makati']
+	#models = ['makati']
 
-	canvas.drawGraph(network, [], [0,0,0,0], model)
+	for model in models:
+		filename = cwd + '/models/' + model + '.inp'
+		network = Network(filename=filename, max_dist=1000, max_depth=2, option='distance')
+		results_dict = dict()
 
-	for method in methods:
-		results = 'results/Raw/' + method + '/' + model + '.txt'
-		results_dict = parseResults(results, results_dict, method)
+		if not network.sfpd:
+			network.sfpd = sfpd_.readSFPD(model)
 
-	results_dict = eliteSet(network, results_dict, methods)
+		#canvas.drawGraph(network, [], [0,0,0,0], model)
+		results_dict_ = parseResults(model, results_dict)
+		types = ['1', '2', '3', '3D']
+		for type_ in types:
+			results_dict = eliteSet(network, results_dict_, type_)
+			if type_ == '3D': 
+				filepath = 'results' + '/3D' + '/' + model + '/'
+				for no_sensors in results_dict:
+					boxplot('results' + '/Boxplot' + '/' + model + '/', no_sensors, results_dict)
+				for no_sensors in [20, 25, 30]:
+					if no_sensors in results_dict:
+						plotResults3D(filepath + str(no_sensors) + '/', no_sensors, results_dict)
+						drawGraph(no_sensors, model, network, results_dict)
+			else: 
+				for no_sensors in results_dict:
+					filepath = 'results/' + '/Tradeoffs' + '/' + model + '/' + str(type_) + '/' 
+					plotResults2D(filepath, no_sensors, results_dict, type_)
 
-	if type_ == '3D':
-		#plotResults3D(30, results_dict, methods)
-		drawGraph(model, network, results_dict, methods)
-	else:		
-		no_sensors_list = [x for x in results_dict]
-		for no_sensors in no_sensors_list:
-			filepath = 'results/' + '/Tradeoffs' + '/' + str(type_) + '/' 
-			plotResults2D(filepath, no_sensors, results_dict, methods)
-	
+		
 if __name__ == '__main__':
     main()

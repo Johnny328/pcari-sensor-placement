@@ -80,13 +80,13 @@ def MonteCarloSimulation(network):
 
 def main():
 	cwd = os.getcwd()
-	model = 'ky2'
-	filename = cwd+'/models/'+model+'.inp'
-	methods = ['SPEA2', 'NSGA2']
+	model = 'sanjuan'
+	filename = cwd + '/models/' + model + '.inp'
+	methods = ['NSGA2', 'SPEA2']
 	
 	percent_attacked = 0.3
 	sfpd_bound = 0.3
-	start, finish = 35, 50
+	start, finish = 5, 20
 
 	option = 'distance'
 	max_dist = 1000
@@ -104,11 +104,12 @@ def main():
 			sfpd_.archiveSFPD(model, sfpd)
 		network.sfpd = sfpd
 
-	method  = 'NSGA2' # for method in methods
+	print "Commencing Genetic algorithm..."
 	for no_sensors in range(start, finish+1):
-		filename = 'results/Raw/' + method + '/' + model + '.txt'
-		max_fail = int(math.ceil(no_sensors*percent_attacked))
-		genetic_(filename, network, no_sensors, max_fail, method)
+		for method in methods:
+			filename = 'results/Raw/' + method + '/' + model + '.txt'
+			max_fail = int(math.ceil(no_sensors*percent_attacked))
+			genetic_(filename, network, no_sensors, max_fail, method)
 
 if __name__ == '__main__':
     main()

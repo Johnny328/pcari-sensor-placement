@@ -28,15 +28,17 @@ def drawGraph(network, sensors, params, filename, subgraphs=None):
 		newpos[sensor] = tuple([x/1000 for x in pos[sensor]])
 
 	# Set background colors according to sensor failure probability distribution
-	
 	for sensor in sfpd:
 		if sensor in network.graph.nodes():
-			if sfpd[sensor] <= 0.1: color = '#ffff99' #yellow
-			elif sfpd[sensor] <= 0.2: color = '#ffc966' #orange
+			if sfpd[sensor] < 0.1: color = '#ffff99' #yellow
+			elif sfpd[sensor] < 0.2: color = '#ffc966' #orange
 			else: color = '#fc8585' #red
-			ax.add_artist(Circle(newpos[sensor], radius=0.3, color=color, zorder=0))
+			radius = 0.25
+			if 'makati' in filename or 'sanjuan' in filename: radius = 0.05
+			ax.add_artist(Circle(newpos[sensor], radius=radius, color=color, zorder=0))
 			if sensor in sensors:
 				width, height = 0.6, 0.6
+				if 'makati' in filename or 'sanjuan' in filename: width, height = 0.1, 0.1
 				ax.add_artist(Rectangle((newpos[sensor][0]- (width/2), newpos[sensor][1] - (height/2)),
 							width=width, height=height, color = 'blue', linewidth=2, fill=False, zorder=5))
 	
@@ -45,15 +47,9 @@ def drawGraph(network, sensors, params, filename, subgraphs=None):
 	nx.draw_networkx_nodes(network.graph, newpos, nodes, node_size=10, node_color='black')
 	nx.draw_networkx_nodes(network.graph, newpos, nodelist=sensors, node_size=10, node_color='black')
 
-	# Attach label to nodes indiciating failure probability
-	#for sensor in network.graph.nodes():
-	#	if sensor not in sfpd:
-	#		sfpd[sensor] = 0
-	#nx.draw_networkx_labels(network.graph, newpos, labels=sfpd)
-
 	edges = [x for x in network.graph.edges() if x not in totalrange]
 	nx.draw_networkx_edges(network.graph, newpos, edges, width=1, edge_color='black')
-	nx.draw_networkx_edges(network.graph, newpos, totalrange, width=2, edge_color='red')
+	nx.draw_networkx_edges(network.graph, newpos, totalrange, width=1, edge_color='black')
 
 	x0, y0, dx, dy = ax.get_position().bounds
 	maxd = max(dx, dy)

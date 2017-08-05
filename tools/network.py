@@ -72,7 +72,7 @@ class Network:
 		if sfpd:
 			for node in junctions:
 				if node not in sfpd:
-					sfpd[node] = 0.1 #default
+					sfpd[node] = random.uniform(0, 0.1) #default
 
 		return graph, position, lookup, junctions, pipe_ids, sfpd
 
