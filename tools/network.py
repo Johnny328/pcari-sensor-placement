@@ -1,6 +1,7 @@
 from __future__ import division
 from parser_ import parser_
 import networkx as nx
+import sfpd as sfpd_
 from math import *
 import random
 import copy
@@ -8,7 +9,7 @@ import re
 import os
 
 class Network:
-	def __init__(self, max_dist, max_depth, option, filename):
+	def __init__(self, max_dist, max_depth, sfpd_bound, option, model):
 		""" Creates the network G(V,E)  where the vertices (nodes) V correspond to junctions
 		    and the edges E correspond to the pipes.
 
@@ -27,16 +28,18 @@ class Network:
 		    :param max_depth: The maximum depth (number of hops) for defining
 		    				  sensor range.
 		 	"""
-		
-		self.filename = filename
-		self.graph, self.position, self.lookup, self.nodes, self.edges, self.sfpd = self.initialize(filename)
+		cwd = os.getcwd()
+		self.model = model
+		self.filename = cwd + '/models/' + model + '.inp'
+		self.sfpd_bound = sfpd_bound
+		self.graph, self.position, self.lookup, self.nodes, self.edges, self.sfpd = self.initialize()
 
 		#Disance-based model
 		self.max_dist = max_dist
 		self.max_depth = max_depth
 		self.range_list = self.readRangeList(os.path.basename(self.filename), option)
 
-	def initialize(self, filename):
+	def initialize(self):
 		""" Initializes the networkx graph and defines the lookup/ dictionaries for fast access.
 
 			:param filename: A .net or .inp file containing the network topology
@@ -51,7 +54,7 @@ class Network:
 			:return pipe_ids: A list of all edge_ids of pipes (excluding pumps and valves)
 		"""
 
-		junctions, pipes, pumps, position, sfpd = parser_().parseInpFile(filename)
+		junctions, pipes, pumps, position, sfpd = parser_().parseInpFile(self.filename)
 		edges = pipes + pumps
 		pipe_ids = []
 		graph = nx.MultiGraph()
@@ -69,10 +72,17 @@ class Network:
 				pipe_ids.append(edge[0])
 
 		# Default value for locations with no flood level specified
-		if sfpd:
-			for node in junctions:
-				if node not in sfpd:
-					sfpd[node] = random.uniform(0, 0.1) #default
+		sfp = sfpd_.readSFPD(self.model)
+		if not sfp:
+			if sfpd:
+				for node in junctions:
+					if node not in sfpd:
+						sfpd[node] = random.uniform(0, 0.1) #default
+			else:
+				sfpd = sfpd_.generateSFP(junctions, position, self.sfpd_bound)
+			sfpd_.archiveSFPD(self.model, sfpd)
+		else:
+			sfpd = sfp
 
 		return graph, position, lookup, junctions, pipe_ids, sfpd
 

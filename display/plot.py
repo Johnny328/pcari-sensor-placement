@@ -20,6 +20,7 @@ import math
 from matplotlib import animation
 import pandas
 import pylab as pl
+import imageio
 
 #Run this script as python -m display.plot
 methods = ['NSGA2', 'SPEA2']
@@ -259,10 +260,10 @@ def plotResults3D(filepath, no_sensors, results_dict):
 		ax.view_init(elev=10., azim=ii)
 		if not os.path.exists(filepath):
 			os.makedirs(filepath)
-		plt.savefig(filepath+"%d.png" % ii)
+		filename = filepath+"%d.png" % ii
+		plt.savefig(filename)
+
 	plt.close()
-
-
 
 def drawGraph(no_sensors, model, network, results_dict):
 	sfpd = network.sfpd
@@ -279,7 +280,9 @@ def drawGraph(no_sensors, model, network, results_dict):
 def boxplot(filepath, no_sensors, results_dict):
 	fig, axes = plt.subplots(nrows=2, ncols=3)
 	fig.subplots_adjust(hspace=.5)
+	fig.tight_layout()
 	n = -1
+
 	for method in methods:
 		n += 1
 		pool_fits = results_dict[no_sensors]['pool-fits'][method]
@@ -290,6 +293,10 @@ def boxplot(filepath, no_sensors, results_dict):
 		df = pandas.DataFrame(data)
 		axes[n, 1].set_title(method)
 		ax = df.plot(kind='box', subplots=True, layout=(1,3), sharex=False, sharey=False, ax=axes[n])
+	
+		print no_sensors
+		print df.describe()
+
 	for i in range(0,3):
 		min_ = min(axes[n,i].get_ylim()[0], axes[n-1,i].get_ylim()[0])
 		max_ =   max(axes[n,i].get_ylim()[1], axes[n-1,i].get_ylim()[1])
@@ -303,8 +310,7 @@ def boxplot(filepath, no_sensors, results_dict):
 
 def main():
 	cwd = os.getcwd()
-	models = ['ky2','ky5', 'makati']
-	#models = ['makati']
+	models = ['ky13']
 
 	for model in models:
 		filename = cwd + '/models/' + model + '.inp'
@@ -323,10 +329,8 @@ def main():
 				filepath = 'results' + '/3D' + '/' + model + '/'
 				for no_sensors in results_dict:
 					boxplot('results' + '/Boxplot' + '/' + model + '/', no_sensors, results_dict)
-				for no_sensors in [20, 25, 30]:
-					if no_sensors in results_dict:
-						plotResults3D(filepath + str(no_sensors) + '/', no_sensors, results_dict)
-						drawGraph(no_sensors, model, network, results_dict)
+					plotResults3D(filepath + str(no_sensors) + '/', no_sensors, results_dict)
+					drawGraph(no_sensors, model, network, results_dict)
 			else: 
 				for no_sensors in results_dict:
 					filepath = 'results/' + '/Tradeoffs' + '/' + model + '/' + str(type_) + '/' 

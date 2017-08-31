@@ -3,8 +3,8 @@ import math
 import os
 
 # Generates random sensor failure probabilities
-def generateSFP(network, alpha):
-	locations = network.nodes
+def generateSFP(nodes, position, alpha):
+	locations = nodes
 	random.seed(64)
 	sfpd = dict()
 
@@ -17,8 +17,8 @@ def generateSFP(network, alpha):
 		# are assigned the same sensor failure probability 
 		# as that node
 		for loc in locations:
-			x1, y1 = network.position[rand_loc]
-			x2, y2 = network.position[loc]
+			x1, y1 = position[rand_loc]
+			x2, y2 = position[loc]
 			dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 			if dist < 1000:
 				sfpd[loc] = rand

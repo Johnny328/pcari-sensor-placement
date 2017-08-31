@@ -80,31 +80,23 @@ def MonteCarloSimulation(network):
 
 def main():
 	cwd = os.getcwd()
-	model = 'sanjuan'
-	filename = cwd + '/models/' + model + '.inp'
+	model = 'makati'
 	methods = ['NSGA2', 'SPEA2']
 	
 	percent_attacked = 0.3
 	sfpd_bound = 0.3
-	start, finish = 5, 20
+	start, finish = 30, 50
 
 	option = 'distance'
 	max_dist = 1000
 	max_depth = 2
 
 	print "Initializing graph..."
-	network = Network(filename=filename, max_dist=max_dist, max_depth=max_depth, option=option)
+	network = Network(model=model, max_dist=max_dist, max_depth=max_depth, sfpd_bound=sfpd_bound, option=option)
 	print "No. of nodes: ", len(network.nodes), " No. of edges", len(network.edges)
 	print "Length (km):", sum(edge[2]['length'] for edge in network.graph.edges(data=True))/(1000)
+	print network.sfpd
 
-	if not network.sfpd:
-		sfpd = sfpd_.readSFPD(model)
-		if not sfpd:
-			sfpd = sfpd_.generateSFP(network, sfpd_bound)
-			sfpd_.archiveSFPD(model, sfpd)
-		network.sfpd = sfpd
-
-	print "Commencing Genetic algorithm..."
 	for no_sensors in range(start, finish+1):
 		for method in methods:
 			filename = 'results/Raw/' + method + '/' + model + '.txt'
