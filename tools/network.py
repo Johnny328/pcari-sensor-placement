@@ -9,7 +9,7 @@ import re
 import os
 
 class Network:
-	def __init__(self, max_dist, max_depth, sfpd_bound, option, model):
+	def __init__(self, max_dist, max_depth, option, model, sfpd_bound=None):
 		""" Creates the network G(V,E)  where the vertices (nodes) V correspond to junctions
 		    and the edges E correspond to the pipes.
 

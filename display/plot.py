@@ -227,7 +227,44 @@ def plotResults2D(filepath, no_sensors, results_dict, type_):
 		plt.savefig(filepath + '/' + str(no_sensors))
 	
 	savefig(filepath, 'pool-fits', type_)
-	savefig(filepath, 'elite-fits', type_)
+	#savefig(filepath, 'elite-fits', type_)
+	plt.close()
+
+def plotResults3DbyN(filepath, no_sensors_, results_dict):
+	def animate(ax, i):
+		ax.view_init(elev=10., azim=i)
+
+	colors = list(i.hex_l for i in Color("blue").range_to(Color("red"), 10))
+	fig = plt.figure()
+	ax = fig.gca(projection='3d')
+
+	plot_color = []
+	method = 'NSGA2'
+	for no_sensors in no_sensors_:
+		pool_fits = results_dict[no_sensors]['pool-fits'][method]
+		color = colors.pop()
+		if pool_fits:
+			ax.scatter(*zip(*pool_fits), c=color, s=5)
+			plot_color.append(color)
+	
+	scatter_proxy = []
+	for index, i in enumerate(no_sensors_):
+		scatter_proxy.append(lines.Line2D([0],[0], linestyle="none", c=plot_color[index], marker = 'o'))
+	ax.legend(scatter_proxy, no_sensors_, numpoints = 1)
+
+	ax.set_xlabel('Detection Performance')
+	ax.set_ylabel('Risk')
+	ax.set_zlabel('Reduced Detection Performance')
+	#plt.show()
+
+	
+	for ii in xrange(0,360,1):
+		ax.view_init(elev=10., azim=ii)
+		if not os.path.exists(filepath):
+			os.makedirs(filepath)
+		filename = filepath+"%d.png" % ii
+		plt.savefig(filename)
+
 	plt.close()
 
 def plotResults3D(filepath, no_sensors, results_dict):
@@ -235,7 +272,6 @@ def plotResults3D(filepath, no_sensors, results_dict):
 		ax.view_init(elev=10., azim=i)
 
 	colors = list(i.hex_l for i in Color("blue").range_to(Color("red"), 10))
-	label = 'N=' + str(no_sensors)
 	fig = plt.figure()
 	ax = fig.gca(projection='3d')
 
@@ -255,14 +291,16 @@ def plotResults3D(filepath, no_sensors, results_dict):
 	ax.set_xlabel('Detection Performance')
 	ax.set_ylabel('Risk')
 	ax.set_zlabel('Reduced Detection Performance')
+	#plt.show()
 
+	
 	for ii in xrange(0,360,1):
 		ax.view_init(elev=10., azim=ii)
 		if not os.path.exists(filepath):
 			os.makedirs(filepath)
 		filename = filepath+"%d.png" % ii
 		plt.savefig(filename)
-
+	
 	plt.close()
 
 def drawGraph(no_sensors, model, network, results_dict):
@@ -310,11 +348,11 @@ def boxplot(filepath, no_sensors, results_dict):
 
 def main():
 	cwd = os.getcwd()
-	models = ['ky13']
+	models = ['sanjuan']
 
 	for model in models:
 		filename = cwd + '/models/' + model + '.inp'
-		network = Network(filename=filename, max_dist=1000, max_depth=2, option='distance')
+		network = Network(model=model, max_dist=1000, max_depth=2, option='distance')
 		results_dict = dict()
 
 		if not network.sfpd:
@@ -331,6 +369,7 @@ def main():
 					boxplot('results' + '/Boxplot' + '/' + model + '/', no_sensors, results_dict)
 					plotResults3D(filepath + str(no_sensors) + '/', no_sensors, results_dict)
 					drawGraph(no_sensors, model, network, results_dict)
+				#plotResults3DbyN(filepath + '/n/', [20, 25, 30, 35, 40], results_dict)
 			else: 
 				for no_sensors in results_dict:
 					filepath = 'results/' + '/Tradeoffs' + '/' + model + '/' + str(type_) + '/' 

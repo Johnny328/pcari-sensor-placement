@@ -99,7 +99,7 @@ def main():
 
 	for no_sensors in range(start, finish+1):
 		for method in methods:
-			filename = 'results/Raw/' + method + '/' + model + '.txt'
+			filename = 'results/Raw/' + method + '/' + model + '-' + method +'.txt'
 			max_fail = int(math.ceil(no_sensors*percent_attacked))
 			genetic_(filename, network, no_sensors, max_fail, method)
 
