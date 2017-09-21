@@ -50,18 +50,21 @@ def parseResults(model, results):
 		return None
 
 	for method in methods:
-		file = open('results/Raw/' + method + '/' + model + '.txt', 'r')
+		file = open('results/Raw/' + method + '/' + model + '-attack-' + method +'.txt', 'r')
 		line = file.readline()
 		while True:
 			# Number of sensors
 			no_sensors = int(line.strip()) 
+			
+			# Attack size
+			attack_size = file.readline()
+			no_sensors = int(attack_size)
+			print no_sensors
 			if no_sensors not in results:
 				results[no_sensors] = dict()
-			results[no_sensors][method] = dict()
 
-			# Attack size
-			line = file.readline()
-			results[no_sensors][method]["attack-set-size"] = int(line.strip()) 
+			results[no_sensors][method] = dict()
+			results[no_sensors][method]["attack-set-size"] = int(attack_size.strip()) 
 
 			# Number of generations
 			line = file.readline()
@@ -92,7 +95,7 @@ def parseResults(model, results):
 	cleanup(results)
 	return results
 	
-def eliteSet(network, results_dict, type_):
+def eliteSet(network, results_dict, type_, verbose=False):
 	#Combine all solutions of each method into one pool
 	def formPool(no_sensors, results_dict, methods, type_):
 		pool = dict()
@@ -124,8 +127,7 @@ def eliteSet(network, results_dict, type_):
 
 	sfpd = network.sfpd
 	for no_sensors in results_dict: #[20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33]:
-	#for no_sensors in [20]:
-		print '\nNo. of sensors', no_sensors
+		if verbose: print '\nNo. of sensors', no_sensors
 
 		# Create pool of solutions
 		pool_inds = formPool(no_sensors, results_dict, methods, type_)
@@ -138,7 +140,7 @@ def eliteSet(network, results_dict, type_):
 		# Extract Pareto front/ elite set
 		elite_inds = utils.sortNondominated(pool, first_front_only=True)
 		results_dict[no_sensors]['elite-inds'] = elite_inds
-		print 'Size of pool: ', str(len(pool)), '\nSize of elite set: ', str(len(elite_inds))
+		if verbose: print 'Size of pool: ', str(len(pool)), '\nSize of elite set: ', str(len(elite_inds))
 
 		# Assign tag to each solution
 		tags = {method: 0 for method in methods}
@@ -155,9 +157,9 @@ def eliteSet(network, results_dict, type_):
 				if sol in pool_inds[method]:
 					elite_fits[method].append(sol.fitness.values)
 					tags[method] += 1
-		
-		for tag in tags:
-			print tag, ': ', tags[tag], '-->', tags[tag]/len(elite_inds), '%'
+		if verbose:
+			for tag in tags:
+				print tag, ': ', tags[tag], '-->', tags[tag]/len(elite_inds), '%'
 
 		results_dict[no_sensors]['pool-fits'] = pool_fits
 		results_dict[no_sensors]['elite-fits'] = elite_fits
@@ -188,7 +190,7 @@ def plotResults2D(filepath, no_sensors, results_dict, type_):
 
 	def plotFigure(no_sensor, fits, type_):
 		fig, ax = plt.subplots(figsize=plt.figaspect(0.5)) 
-		marker_size = 30
+		marker_size = 20
 		color_patches = []
 		marker_patches = []
 
@@ -196,13 +198,15 @@ def plotResults2D(filepath, no_sensors, results_dict, type_):
 
 		max_y = 0
 		n = 0
-		for method, marker in zip(methods, markers):
+		#for method, marker in zip(methods, markers):
+		marker = 'o'
+		for method in methods:
 			#color = colors.pop()
 			color = colors[n]
 			if fits in results_dict[no_sensors]:
 				pool_fits = results_dict[no_sensors][fits][method]
-				if pool_fits: plt.scatter(*zip(*pool_fits), s=marker_size, marker=marker, label=label, facecolor='none', color=color)
-			marker_patches.append(mlines.Line2D([], [], color=color, marker=marker, fillstyle='none', linestyle = 'None', label=method))
+				if pool_fits: plt.scatter(*zip(*pool_fits), s=marker_size, marker=marker, label=label, color=color)
+			marker_patches.append(mlines.Line2D([], [], color=color, marker=marker, fillstyle='full', linestyle = 'None', label=method))
 			n += 1
 		
 		legend1 = plt.legend(handles=marker_patches, loc='upper left')
@@ -234,12 +238,15 @@ def plotResults3DbyN(filepath, no_sensors_, results_dict):
 	def animate(ax, i):
 		ax.view_init(elev=10., azim=i)
 
-	colors = list(i.hex_l for i in Color("blue").range_to(Color("red"), 10))
+	#colors = ['red', 'violet', 'blue']
+	colors = list(i.hex_l for i in Color("darkblue").range_to(Color("red"), 10))
 	fig = plt.figure()
 	ax = fig.gca(projection='3d')
 
 	plot_color = []
 	method = 'NSGA2'
+	no_sensors_ = sorted(no_sensors_, reverse=False)
+	percent = [r"k=" + str(x) +" (" + str(x/20) + r"n)" for x in no_sensors_]
 	for no_sensors in no_sensors_:
 		pool_fits = results_dict[no_sensors]['pool-fits'][method]
 		color = colors.pop()
@@ -250,13 +257,12 @@ def plotResults3DbyN(filepath, no_sensors_, results_dict):
 	scatter_proxy = []
 	for index, i in enumerate(no_sensors_):
 		scatter_proxy.append(lines.Line2D([0],[0], linestyle="none", c=plot_color[index], marker = 'o'))
-	ax.legend(scatter_proxy, no_sensors_, numpoints = 1)
+	ax.legend(scatter_proxy, percent, numpoints = 1)
 
 	ax.set_xlabel('Detection Performance')
 	ax.set_ylabel('Risk')
 	ax.set_zlabel('Reduced Detection Performance')
 	#plt.show()
-
 	
 	for ii in xrange(0,360,1):
 		ax.view_init(elev=10., azim=ii)
@@ -268,40 +274,42 @@ def plotResults3DbyN(filepath, no_sensors_, results_dict):
 	plt.close()
 
 def plotResults3D(filepath, no_sensors, results_dict):
+	def savefig(path, fits):
+		path = path+'/'+fits+"/"
+		for ii in xrange(0,360,1):
+			ax.view_init(elev=10., azim=ii)
+			if not os.path.exists(path):
+				os.makedirs(path)
+			filename = path+"%d.png" % ii
+			plt.savefig(filename)
+
 	def animate(ax, i):
 		ax.view_init(elev=10., azim=i)
 
-	colors = list(i.hex_l for i in Color("blue").range_to(Color("red"), 10))
-	fig = plt.figure()
-	ax = fig.gca(projection='3d')
+	for fits in ['elite-fits']:
+		colors = list(i.hex_l for i in Color("blue").range_to(Color("red"), 10))
+		fig = plt.figure()
+		ax = fig.gca(projection='3d')
 
-	plot_color = []
-	colors = ['blue', 'orange']
-	for method, marker in zip(methods, markers):
-		pool_fits = results_dict[no_sensors]['pool-fits'][method]
-		color = colors.pop()
-		if pool_fits:
-			ax.scatter(*zip(*pool_fits), c=color, s=5)
-			plot_color.append(color)
+		plot_color = []
+		colors = ['blue', 'orange']
+		for method, marker in zip(methods, markers):
+			pool_fits = results_dict[no_sensors][fits][method]
+			color = colors.pop()
+			if pool_fits:
+				ax.scatter(*zip(*pool_fits), c=color, s=5)
+				plot_color.append(color)
 	
-	scatter1_proxy = lines.Line2D([0],[0], linestyle="none", c=plot_color[0], marker = 'o')
-	scatter2_proxy = lines.Line2D([0],[0], linestyle="none", c=plot_color[1], marker = 'o')
-	ax.legend([scatter1_proxy, scatter2_proxy], [methods[0], methods[1]], numpoints = 1)
+		scatter1_proxy = lines.Line2D([0],[0], linestyle="none", c=plot_color[0], marker = 'o')
+		scatter2_proxy = lines.Line2D([0],[0], linestyle="none", c=plot_color[1], marker = 'o')
+		ax.legend([scatter1_proxy, scatter2_proxy], [methods[0], methods[1]], numpoints = 1)
 
-	ax.set_xlabel('Detection Performance')
-	ax.set_ylabel('Risk')
-	ax.set_zlabel('Reduced Detection Performance')
-	#plt.show()
+		ax.set_xlabel('Detection Performance')
+		ax.set_ylabel('Risk')
+		ax.set_zlabel('Reduced Detection Performance')
 
-	
-	for ii in xrange(0,360,1):
-		ax.view_init(elev=10., azim=ii)
-		if not os.path.exists(filepath):
-			os.makedirs(filepath)
-		filename = filepath+"%d.png" % ii
-		plt.savefig(filename)
-	
-	plt.close()
+		savefig(filepath, fits)
+		plt.close()
 
 def drawGraph(no_sensors, model, network, results_dict):
 	sfpd = network.sfpd
@@ -344,36 +352,41 @@ def boxplot(filepath, no_sensors, results_dict):
 	if not os.path.exists(filepath):
 		os.makedirs(filepath)
 	plt.savefig(filepath+"%d.png" %no_sensors)
-	#plt.show()
+
+def drawplots(network, results_dict, filename):
+	#canvas.drawGraph(network, [], [0,0,0,0], model)
+	results_dict_ = parseResults(model, results_dict)
+	types = ['1', '2', '3', '3D']
+	for type_ in types:
+		print "Processing " + type_ + '...'
+		if type_ == '3D': verbose = True
+		else: verbose = False 
+		results_dict = eliteSet(network, results_dict_, type_, verbose)
+		if type_ == '3D': 
+			filepath = 'results' + '/3D' + '/' + model + '/'
+			for no_sensors in [30]:
+				print "Creating boxplot for ", no_sensors
+				boxplot('results' + '/Boxplot' + '/' + model + '/', no_sensors, results_dict)
+				print "Creating 3D plot for ", no_sensors
+				plotResults3D(filepath + str(no_sensors) + '/', no_sensors, results_dict)
+				print "Drawing graph for ", no_sensors
+				drawGraph(no_sensors, model, network, results_dict)
+			plotResults3DbyN(filepath + '/n/', [x for x in results_dict], results_dict)
+		else: 
+			for no_sensors in results_dict:
+				filepath = 'results/' + '/Tradeoffs' + '/' + model + '/' + str(type_) + '/' 
+				plotResults2D(filepath, no_sensors, results_dict, type_)
 
 def main():
 	cwd = os.getcwd()
-	models = ['sanjuan']
+	models = ['makati']
 
 	for model in models:
 		filename = cwd + '/models/' + model + '.inp'
 		network = Network(model=model, max_dist=1000, max_depth=2, option='distance')
 		results_dict = dict()
-
 		if not network.sfpd:
 			network.sfpd = sfpd_.readSFPD(model)
-
-		#canvas.drawGraph(network, [], [0,0,0,0], model)
-		results_dict_ = parseResults(model, results_dict)
-		types = ['1', '2', '3', '3D']
-		for type_ in types:
-			results_dict = eliteSet(network, results_dict_, type_)
-			if type_ == '3D': 
-				filepath = 'results' + '/3D' + '/' + model + '/'
-				for no_sensors in results_dict:
-					boxplot('results' + '/Boxplot' + '/' + model + '/', no_sensors, results_dict)
-					plotResults3D(filepath + str(no_sensors) + '/', no_sensors, results_dict)
-					drawGraph(no_sensors, model, network, results_dict)
-				#plotResults3DbyN(filepath + '/n/', [20, 25, 30, 35, 40], results_dict)
-			else: 
-				for no_sensors in results_dict:
-					filepath = 'results/' + '/Tradeoffs' + '/' + model + '/' + str(type_) + '/' 
-					plotResults2D(filepath, no_sensors, results_dict, type_)
 
 		
 if __name__ == '__main__':

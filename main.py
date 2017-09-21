@@ -97,6 +97,14 @@ def main():
 	print "Length (km):", sum(edge[2]['length'] for edge in network.graph.edges(data=True))/(1000)
 	print network.sfpd
 
+	no_sensors = 20
+	for percent_attacked in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+		for method in methods:
+			filename = 'results/Raw/' + method + '/' + model + '-attack.txt'
+			max_fail = int(math.ceil(no_sensors*percent_attacked))
+			genetic_(filename, network, no_sensors, max_fail, method)
+	
+
 	for no_sensors in range(start, finish+1):
 		for method in methods:
 			filename = 'results/Raw/' + method + '/' + model + '-' + method +'.txt'

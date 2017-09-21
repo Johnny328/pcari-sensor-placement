@@ -1,8 +1,0 @@
-Number of sensors
-Attack set size
-Number of generations
-Average time per generation (seconds)
-Total time
-Sensor configuration
-DP  Risk(int) Risk% DP_after_attack
-. (marks the end of results)

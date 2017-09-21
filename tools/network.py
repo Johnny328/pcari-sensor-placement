@@ -127,7 +127,6 @@ class Network:
 			<JUNCTION_1 NAME> <LIST OF PIPE NAMES IN JUNCTION_1'S RANGE>
 			...
 			<JUNCTION_N NAME> <LIST OF PIPE NAMES IN JUNCTION_N'S RANGE>
-
 		:param base: network filename (e.g. net1.inp)
 		:param range_list: range_list to be archived
 		"""
